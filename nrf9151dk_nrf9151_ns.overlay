@@ -1,0 +1,27 @@
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+	chosen {
+		zephyr,display = &ssd1306_ssd1306_128x64;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	zephyr,flash-buf-max-size = <64>;
+	zephyr,concat-buf-size = <2048>;
+
+	ssd1306_ssd1306_128x64: ssd1306@3c {
+		compatible = "solomon,ssd1306fb";
+		reg = <0x3c>;
+		width = <128>;
+		height = <64>;
+		segment-offset = <0>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		segment-remap;
+		com-invdir;
+		prechargep = <0x22>;
+	};
+};
