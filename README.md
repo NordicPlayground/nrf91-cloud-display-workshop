@@ -258,9 +258,10 @@ We need to add the nRF Modem library to interface the modem and the LTE Link Con
 
 Add these lines to your prj.conf to enable both libraries
 ```C
-# LTE
+# Modem
 CONFIG_NRF_MODEM_LIB=y
 CONFIG_LTE_LINK_CONTROL=y
+CONFIG_LTE_NETWORK_MODE_LTE_M=y
 ```
 
 Add these includes list of includes in main.c, at line 
@@ -374,54 +375,60 @@ This is a very crude way to show the connection status in the display.
 
 
 ### Step 4
-Cloud Connectivity via CoAP: Implement cloud connectivity using the CoAP protocol, allowing the device to provision over-the-air to the nRF Cloud using provisioning service. This service allows you to securely provision your Nordic Semiconductor devices over-the-air to nRF Cloud. In this step we will combine elements from the Cellular: nRF Device provisioning sample with a simple CoAP application. 
+Cloud Connectivity via CoAP: Implement cloud connectivity using the CoAP protocol, allowing the device to provision over-the-air to the nRF Cloud using provisioning service. This service allows you to securely provision your Nordic Semiconductor devices over-the-air to nRF Cloud. In this step we will combine elements from the Cellular: nRF Device provisioning sample with a simple CoAP application to enable the device to be added to nRF Cloud device list.
 
-In prj.conf add the following at the end
+In prj.conf add the following Kconfig configuration options to enable provisioning and the CoAP protocol.
+
+Under `# Logging` copy and paste the following options. This will enable more logging from the different modules used by the project.
 ```C
-CONFIG_NRF_MODEM_LIB=y
+# Logging
+CONFIG_NRF_MODEM_LIB_TRACE=n
+CONFIG_LOG=y
+CONFIG_SERIAL=y
+CONFIG_THREAD_NAME=y
+
+CONFIG_NRF_CLOUD_LOG_LEVEL_DBG=y
+CONFIG_NET_LOG=y
+CONFIG_COAP_LOG_LEVEL_DBG=y
+CONFIG_LTE_LINK_CONTROL_LOG_LEVEL_DBG=n
+CONFIG_NRF_PROVISIONING_LOG_LEVEL_DBG=y
+```
+
+Under `# Modem` copy and paste the following options.
+```C
+# Modem
 CONFIG_NEWLIB_LIBC=y
-CONFIG_NEWLIB_LIBC_FLOAT_PRINTF=y
-CONFIG_NRF_CLOUD_SEC_TAG=111
-CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
-CONFIG_DATE_TIME=y
-CONFIG_MAIN_STACK_SIZE=2048
-CONFIG_HEAP_MEM_POOL_SIZE=8192
 
 CONFIG_NETWORKING=y
 CONFIG_NET_SOCKETS=y
 CONFIG_NET_SOCKETS_OFFLOAD=y
 CONFIG_NET_SOCKETS_POSIX_NAMES=y
+CONFIG_NET_IPV6=n
+CONFIG_LTE_PSM_REQ=n
+``` 
+
+
+Under `# System` copy and paste the following options
+```C
+CONFIG_MAIN_STACK_SIZE=2048
+``` 
+
+Copy and paste the following configuration options at the end of prj.conf. 
+```C
+# nRF Cloud CoAP
+CONFIG_NRF_CLOUD_SEC_TAG=111
+CONFIG_NRF_CLOUD_CLIENT_ID_SRC_INTERNAL_UUID=y
+CONFIG_MODEM_JWT=y
+CONFIG_NRF_CLOUD_COAP=y
+CONFIG_NEWLIB_LIBC_FLOAT_PRINTF=y
 
 CONFIG_COAP_CLIENT_BLOCK_SIZE=1024
 CONFIG_COAP_CLIENT_STACK_SIZE=6144
-#CONFIG_COAP_CLIENT_THREAD_PRIORITY=0
-CONFIG_COAP_EXTENDED_OPTIONS_LEN_VALUE=40
 
-CONFIG_LTE_LINK_CONTROL=y
-CONFIG_LTE_NETWORK_MODE_LTE_M=y
-CONFIG_LTE_PSM_REQ=n
-# No active time
-CONFIG_LTE_PSM_REQ_RAT="00000000"
-# 2 hours
-CONFIG_LTE_PSM_REQ_RPTAU="00100010"
+# nRF Provisioning
 CONFIG_MODEM_KEY_MGMT=y
-CONFIG_MODEM_JWT=y
 CONFIG_MODEM_ATTEST_TOKEN=y
-
-CONFIG_LOG_PRINTK=y
-
-CONFIG_LTE_LINK_CONTROL_LOG_LEVEL_DBG=n
-CONFIG_NRF_PROVISIONING_LOG_LEVEL_DBG=y
-CONFIG_NRF_MODEM_LIB_TRACE=n
-CONFIG_LOG=y
-CONFIG_SERIAL=y
-
-CONFIG_THREAD_NAME=y
-CONFIG_NRF_CLOUD_LOG_LEVEL_DBG=y
-CONFIG_NET_LOG=y
-CONFIG_COAP_LOG_LEVEL_DBG=y
-
-CONFIG_NRF_CLOUD_COAP=y
+CONFIG_DATE_TIME=y
 
 CONFIG_NRF_PROVISIONING=y
 CONFIG_NRF_PROVISIONING_COAP=y
@@ -450,21 +457,13 @@ CONFIG_MODEM_INFO_ADD_NETWORK=n
 CONFIG_MODEM_INFO_ADD_SIM=n
 ``` 
 
-In CMakesLists.txt add the following code at the end
-```C
-target_include_directories(app PRIVATE src)
-target_sources_ifdef(CONFIG_NRF_CLOUD_COAP app PRIVATE src/cloud_coap.c)
-```
+
 In the start of main.c, in the include list add the following includes
 ```C
 #include <modem/modem_key_mgmt.h>
 #include <net/nrf_provisioning.h>
 #include <zephyr/sys/reboot.h>
-#include <cJSON.h>
-
 #include "nrf_provisioning_at.h"
-
-#include "cloud.h"
 ``` 
 
 Add the following defines below the include list
@@ -596,29 +595,6 @@ err = nrf_provisioning_init(&mmode, &dmode);
 k_sem_take(&provisioning_complete, K_FOREVER);
 LOG_INF("Provisioning complete\n");
 
-cloud_thread();
-
-```
-
-Add a new file to the project folder and name it Kconfig. 
-
-Add the following code to the Kconfig file
-```C
-config CLOUD_POLL_INTERVAL
-    int "How often to poll the device shadow, in seconds"
-    default 60
-
-config SHADOW_BUFFER_SIZE
-    int "How big buffer to allocate for the shadow"
-    default 1024
-
-module = CLOUD_DISPLAY
-module-str = Cloud display
-source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
-
-menu "Zephyr Kernel"
-source "Kconfig.zephyr"
-endmenu 
 ```
 
 You should now be able to build the project and flash your device. The output will have a few errors, which is expected as the device is not yet claimed in nRF Cloud. 
@@ -639,6 +615,316 @@ Your device should be successfully be claimed in nRF Cloud.
 
 On you development kit press the reset button. This will start the process of provisioning your device, downloading the needed certificates from nRF Cloud and restarting the device automatically as needed. 
 
+Once the process is done, you can verify that your device is added to the device list in [nrfcloud.com](www.nrfcloud.com) by clicking Device Management and Devices. Note down the ID from the claimed devices list in case you have many devices.
+![nRF Cloud device management](/pics/step4_nrfcloud-device1.png)
+
+We can see the device is in our list of devices
+![nRF Cloud device management confirmed](/pics/step4_nrfcloud-device2.png)
 
 ### Step 5
-Cloud-to-Device Messaging: Send a message from nRF Cloud to the device and display it on the OLED.
+Cloud-to-Device Messaging: Send a message from nRF Cloud to the device and display it on the OLED. In this step we will add a crude way to send a message to the device using the shadow information from nRF Cloud.
+
+Add a new file and rename it to KConfig. In this file add the following code
+```C
+config CLOUD_POLL_INTERVAL
+    int "How often to poll the device shadow, in seconds"
+    default 60
+
+config SHADOW_BUFFER_SIZE
+    int "How big buffer to allocate for the shadow"
+    default 1024
+
+module = CLOUD_DISPLAY
+module-str = Cloud display
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu 
+```
+
+In the folder `src` add a new file and rename to cloud.h. Copy and paste the following code to cloud.h
+```C
+#ifndef __CLOUD_H__
+#define __CLOUD_H__
+
+int cloud_thread(void);
+
+#endif /* __CLOUD_H__ */
+```
+
+Add another new file to `src` and rename this file to cloud_coap.c. 
+At the start of this file add the following includes
+```C
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+
+#include <net/nrf_cloud_coap.h>
+#include <cJSON.h>
+
+#include "cloud.h"
+```
+
+To allow logging from this file, add the following code beneath the include list
+```C
+LOG_MODULE_REGISTER(cloud, CONFIG_CLOUD_DISPLAY_LOG_LEVEL);
+```
+
+In prj.conf under `# Logging`, copy and paste the following options. This will enable the `CONFIG_CLOUD_DISPLAY_LOG_LEVEL` defined in KConfig and allowing the LOG Module to use this log level.
+```C
+# Logging
+CONFIG_CLOUD_DISPLAY_LOG_LEVEL_DBG=y
+```
+
+Coming back to `/src/cloud_coap.c` we need to add some variables, structs and defines. Copy the following lines and paste below the LOG_MODULE_REGISTER
+```C
+extern const struct device *dev; //Enable access to display
+static void shadow_poll_timer_handler(struct k_timer *id);
+
+K_SEM_DEFINE(shadow_poll_sem, 0, 1);
+K_TIMER_DEFINE(shadow_poll_timer, shadow_poll_timer_handler, NULL);
+
+char shadow_buffer[CONFIG_SHADOW_BUFFER_SIZE];
+```
+
+Add the following code to enable `shadow_poll_timer_handler` below the defines, around line 18.
+```C
+static void shadow_poll_timer_handler(struct k_timer *id)
+{
+    k_sem_give(&shadow_poll_sem);
+}
+```
+Add the following code beneath the `shadow_poll_timer_handler`:
+```C
+/* display_string will be pointing to the string value inside the cJSON object,
+    and will be freed together with input */
+static int parse_config(cJSON *input, char **display_string)
+{
+    if (input == NULL) {
+        return -EINVAL;
+    }
+
+    LOG_DBG("Shadow:\n%s", cJSON_Print(input));
+
+    cJSON *config = cJSON_GetObjectItem(input, "config");
+    if (config == NULL) {
+        LOG_ERR("Could not find config object");
+        return -1;
+    }
+    
+    cJSON *display = cJSON_GetObjectItem(config, "display");
+    if (display == NULL) {
+        LOG_ERR("Could not find display config");
+        return -1;
+    }
+
+    *display_string = cJSON_GetStringValue(display);
+    return 0;
+}
+```
+Add the following code after the code above
+```C 
+/* json is an allocated string that must be freed by the caller */
+static int encode_config(char *display_string, char **json)
+{
+    if (display_string == NULL) {
+        return -EINVAL;
+    }
+
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) {
+        LOG_ERR("Failed to create root object");
+        return -1;
+    }
+
+    cJSON *config = cJSON_CreateObject();
+    if (config == NULL) {
+        LOG_ERR("Failed to create config object");
+        return -1;
+    }
+
+    cJSON_AddItemToObject(root, "config", config);
+
+    if (cJSON_AddStringToObject(config, "display", display_string) == NULL) {
+        LOG_ERR("Failed to add display string");
+        cJSON_Delete(root);
+        return -1;
+    }
+
+    *json = cJSON_Print(root);
+    if (json == NULL) {
+        LOG_ERR("Failed to print JSON string");
+        cJSON_Delete(root);
+        return -1;
+    }
+
+    cJSON_Delete(root);
+    return 0;
+}
+```
+At the end of the file add the following function
+```C
+int cloud_thread(void)
+{
+
+}
+``` 
+
+In cloud_thread() define the following integer at the top
+```C 
+	int err;
+```
+
+Following the integer add the following code in cloud_thread(). Here we initialize the nRF Cloud CoAP communication and connect to nRF Cloud via CoAP.
+```C
+    LOG_INF("Cloud thread started");
+    
+    err = nrf_cloud_coap_init();
+    if (err) {
+        LOG_ERR("Failed to init nRF Cloud CoAP: %d", err);
+        return err;
+    }
+
+    err = nrf_cloud_coap_connect(NULL);
+    if (err) {
+        LOG_ERR("Failed to connect to nRF Cloud");
+        return err;
+    }
+```
+
+Next we need to configure jSON, part of the nRF Cloud communication. Add the following code after the cloud connection above
+```C
+    LOG_DBG("Setting initial config");
+    char *json = NULL;
+    err = encode_config("", &json);
+    if (err || json == NULL) {
+        LOG_ERR("Failed to encode default config. err: %d, json: %p", err, json);
+        return err;
+    }
+```
+
+Now we can update the shadow information from nRF Cloud. Add the following code at the end of cloud_thread() function
+```C
+err = nrf_cloud_coap_shadow_state_update(json);
+    if (err) {
+        LOG_ERR("Failed to update shadow state: %d", err);
+        return err;
+    }
+    free(json);
+    json = NULL;
+
+    k_timer_start(&shadow_poll_timer, K_NO_WAIT, K_SECONDS(CONFIG_CLOUD_POLL_INTERVAL));
+```
+Add a while loop after the last lines above
+```C
+while(true) {
+
+}
+```
+
+In the while loop add the following code. Here we download the shadow data.
+```C
+        k_sem_take(&shadow_poll_sem, K_FOREVER);
+
+        LOG_INF("Getting shadow");
+        err = nrf_cloud_coap_shadow_get(shadow_buffer, CONFIG_SHADOW_BUFFER_SIZE, true);
+        if (err) {
+            LOG_ERR("Failed to get shadow delta: %d", err);
+            continue;
+        } else if (err == 0 && strlen(shadow_buffer) == 0) {
+            LOG_INF("No changes to the shadow");
+            continue;
+        }
+
+        LOG_DBG("Shadow delta:\n%s\n", shadow_buffer);
+
+        struct nrf_cloud_data shadow_delta = {
+            .ptr = shadow_buffer,
+            .len = strlen(shadow_buffer)
+        };
+        struct nrf_cloud_obj shadow_config;
+```
+
+Next we will process the shadow data. Add the following code after the last code above:
+```C
+ 		err = nrf_cloud_coap_shadow_delta_process(&shadow_delta, &shadow_config);
+        if (err) {
+            LOG_ERR("Failed to process shadow delta: %d", err);
+            goto shadow_cleanup;
+        } else if (shadow_config.type != NRF_CLOUD_OBJ_TYPE_JSON) {
+            LOG_ERR("Unsupported nRF Cloud object type: %d", shadow_config.type);
+            goto shadow_cleanup;
+        }
+
+        char *string = NULL;
+        err = parse_config(shadow_config.json, &string);
+        if (err || string == NULL) {
+            LOG_ERR("Failed to parse shadow: %d", err);
+            goto shadow_cleanup;
+        }
+        LOG_DBG("Display: %s", string);
+```
+
+Now that we have downloaded and processed the shadow data, we can print the information in the OLED display.
+Here we can print the string from above. Add the following code after the code above around line 164
+```C
+ 		//Print string to OLED display
+        cfb_print(dev, "              ", 20, 50);
+		cfb_print(dev, string, 20, 50);
+        cfb_framebuffer_finalize(dev);
+```
+
+Add the following code to report back to nRF Cloud that the shadow information is used. 
+```C
+  err = encode_config(string, &json);
+        if (err || json == NULL) {
+            LOG_ERR("Failed to encode default config");
+            continue;
+        }
+
+        err = nrf_cloud_coap_shadow_state_update(json);
+        if (err) {
+            LOG_ERR("Failed to update shadow state: %d", err);
+            goto json_cleanup;
+        }
+
+json_cleanup:
+        free(json);
+        json = NULL;
+        
+shadow_cleanup:
+        err = nrf_cloud_obj_free(&shadow_config);
+        if (err) {
+            LOG_ERR("Failed to free shadow object: %d", err);
+            continue;
+```
+
+
+In CMakesLists.txt add the following code at the end
+```C
+target_include_directories(app PRIVATE src)
+target_sources_ifdef(CONFIG_NRF_CLOUD_COAP app PRIVATE src/cloud_coap.c)
+```
+
+In main.c add the following includes to the include list
+```C
+#include <cJSON.h>
+#include "cloud.h"
+
+```
+
+Add the following function from cloud_coap.c to the end of main() function in main.c
+```C
+cloud_thread();
+```
+
+Build and flash your device again. Navigating back to the device management list in nRF Cloud, click on your device and you should see a new button added to the "top menu" called View Config
+![Step 5 - nRF Cloud View Config](/pics/Step5_nrfcloud_ViewConfig.png)
+
+The view config menu item allows us to configure the device and send a desired configuration which we can print in the OLED display. From the parse_config() function in cloud_coap.c we can see that it looks after a `display` object.
+In the device configuration we can add a desired configuration with the following code
+```C
+{
+  "display": "Message for display"
+}
+```
