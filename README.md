@@ -96,7 +96,7 @@ Rebuild the project and flash the sample. The output in the terminal will now sh
 ### Step 2 Adding an OLED display
 
 In the following step we are going to add an OLED display to the nRF9151DK. The display is enabled through the KConfig interface and the devicetree. 
-_THe following code is based on the Character frame buffer samples in the Zephyr repository._
+_The following code is based on the Character Frame Buffer samples in the Zephyr repository._
 
 In order for the display to be discovered we need to add a devicetree overlay telling our I2C bus what address to access, and additional configurations.  We need to create an overlay with the file name nrf9151dk_nrf9151_ns.overlay and add it to the root project folder.
 
@@ -176,7 +176,7 @@ int display_init(void)
     /* Get devicetree identifier and make sure it is ready to use */
 	dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
 	if (!device_is_ready(dev)) {
-		LOG_ERR("Device %s not ready\n", dev->name);
+		LOG_ERR("Device %s not ready", dev->name);
 		return 0;
 	}
 
@@ -187,10 +187,10 @@ int display_init(void)
 		}
 	}
 
-	LOG_INF("Initialized %s\n", dev->name);
+	LOG_INF("Initialized %s", dev->name);
 
 	if (cfb_framebuffer_init(dev)) {
-		LOG_ERR("Framebuffer initialization failed!\n");
+		LOG_ERR("Framebuffer initialization failed!");
 		return 0;
 	}
 	cfb_framebuffer_clear(dev, true);
@@ -200,7 +200,7 @@ int display_init(void)
 	y_res = cfb_get_display_parameter(dev, CFB_DISPLAY_HEIGH);
 	rows = cfb_get_display_parameter(dev, CFB_DISPLAY_ROWS);
 	ppt = cfb_get_display_parameter(dev, CFB_DISPLAY_PPT);
-	LOG_INF("x_res %d, y_res %d, ppt %d, rows %d, cols %d\n",
+	LOG_INF("x_res %d, y_res %d, ppt %d, rows %d, cols %d",
 	       x_res,
 	       y_res,
 	       ppt,
@@ -218,7 +218,7 @@ int display_init(void)
 			break;
 		}
 		cfb_framebuffer_set_font(dev, idx);
-		LOG_WRN("font width %d, font height %d\n",
+		LOG_WRN("font width %d, font height %d",
 		       font_width, font_height);
 	}
 
@@ -289,7 +289,7 @@ static void lte_handler(const struct lte_lc_evt *const evt)
                         break;
                 }
 
-                LOG_INF("Connected to: %s network\n",
+                LOG_INF("Connected to: %s network",
                        evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME ? "home" : "roaming");
 
                 k_sem_give(&lte_connected);
@@ -466,12 +466,6 @@ In the start of main.c, in the include list add the following includes
 #include "nrf_provisioning_at.h"
 ``` 
 
-Add the following defines below the include list
-```C
-#define INTERVAL 2
-#define SEND_PERIOD K_MINUTES(INTERVAL)
-```
-
 Add the following semaphore with the lte_connected semaphore
 ```C
 K_SEM_DEFINE(provisioning_complete, 0, 1);
@@ -491,7 +485,7 @@ static void reboot_device(void)
 	int ret = lte_lc_func_mode_set(LTE_LC_FUNC_MODE_OFFLINE);
 
 	if (ret != 0) {
-		LOG_ERR("Unable to set modem offline, error %d\n", ret);
+		LOG_ERR("Unable to set modem offline, error %d", ret);
 	}
 
 	sys_reboot(SYS_REBOOT_WARM);
@@ -510,7 +504,7 @@ static int modem_mode_cb(enum lte_lc_func_mode new_mode, void *user_data)
 	ARG_UNUSED(user_data);
 
 	if (lte_lc_func_mode_get(&fmode)) {
-		LOG_ERR("Failed to read modem functional mode\n");
+		LOG_ERR("Failed to read modem functional mode");
 		ret = -EFAULT;
 		return ret;
 	}
@@ -524,23 +518,23 @@ static int modem_mode_cb(enum lte_lc_func_mode new_mode, void *user_data)
 		ret = lte_lc_connect();
 
 		if (ret) {
-			LOG_ERR("lte_lc_connect() failed %d\n", ret);
+			LOG_ERR("lte_lc_connect() failed %d", ret);
 		}
-		LOG_INF("Modem connection restored\n");
+		LOG_INF("Modem connection restored");
 
-		LOG_INF("Waiting for modem to acquire network time...\n");
+		LOG_INF("Waiting for modem to acquire network time...");
 
 		do {
 			k_sleep(K_SECONDS(3));
 			ret = nrf_provisioning_at_time_get(time_buf, sizeof(time_buf));
 		} while (ret != 0);
 
-		LOG_INF("Network time obtained\n");
+		LOG_INF("Network time obtained");
 		ret = fmode;
 	} else {
 		ret = lte_lc_func_mode_set(new_mode);
 		if (ret == 0) {
-			LOG_INF("Modem set to requested state %d\n", new_mode);
+			LOG_INF("Modem set to requested state %d", new_mode);
 			ret = fmode;
 		}
 	}
@@ -560,18 +554,18 @@ static void device_mode_cb(enum nrf_provisioning_event event, void *user_data)
 
 	switch (event) {
 	case NRF_PROVISIONING_EVENT_START:
-		LOG_INF("Provisioning started\n");
+		LOG_INF("Provisioning started");
 		break;
 	case NRF_PROVISIONING_EVENT_STOP:
-		LOG_WRN("Provisioning stopped\n");
+		LOG_INF("Provisioning stopped");
 		k_sem_give(&provisioning_complete);
 		break;
 	case NRF_PROVISIONING_EVENT_DONE:
-		LOG_INF("Provisioning done, rebooting...\n");
+		LOG_INF("Provisioning done, rebooting...");
 		reboot_device();
 		break;
 	default:
-		LOG_ERR("Unknown event\n");
+		LOG_ERR("Unknown event");
 		break;
 	}
 }
@@ -589,11 +583,11 @@ At the end of the main() function, add the following code
 ```C
 err = nrf_provisioning_init(&mmode, &dmode);
 	if (err) {
-		LOG_ERR("Failed to initialize provisioning client\n");
+		LOG_ERR("Failed to initialize provisioning client");
 	}
 
 k_sem_take(&provisioning_complete, K_FOREVER);
-LOG_INF("Provisioning complete\n");
+LOG_INF("Provisioning complete");
 
 ```
 
@@ -704,7 +698,7 @@ static int parse_config(cJSON *input, char **display_string)
         return -EINVAL;
     }
 
-    LOG_DBG("Shadow:\n%s", cJSON_Print(input));
+    LOG_DBG("Shadow:\n%s\n", cJSON_Print(input));
 
     cJSON *config = cJSON_GetObjectItem(input, "config");
     if (config == NULL) {
@@ -792,7 +786,7 @@ Following the integer add the following code in cloud_thread(). Here we initiali
     }
 ```
 
-Next we need to configure jSON, part of the nRF Cloud communication. Add the following code after the cloud connection above
+Next we need to configure JSON, part of the nRF Cloud communication. Add the following code after the cloud connection above
 ```C
     LOG_DBG("Setting initial config");
     char *json = NULL;

@@ -24,9 +24,6 @@
 
 #include "cloud.h"
 
-#define INTERVAL 2
-#define SEND_PERIOD K_MINUTES(INTERVAL)
-
 LOG_MODULE_REGISTER(workshop_code,LOG_LEVEL_DBG);
 /* Semaphore used to block the main thread until modem has established
  * an LTE connection.
@@ -54,7 +51,7 @@ static void lte_handler(const struct lte_lc_evt *const evt)
                         break;
                 }
 
-                LOG_INF("Connected to: %s network\n",
+                LOG_INF("Connected to: %s network",
                        evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME ? "home" : "roaming");
 
                 k_sem_give(&lte_connected);
@@ -102,7 +99,7 @@ static void reboot_device(void)
 	int ret = lte_lc_func_mode_set(LTE_LC_FUNC_MODE_OFFLINE);
 
 	if (ret != 0) {
-		LOG_ERR("Unable to set modem offline, error %d\n", ret);
+		LOG_ERR("Unable to set modem offline, error %d", ret);
 	}
 
 	sys_reboot(SYS_REBOOT_WARM);
@@ -118,7 +115,7 @@ static int modem_mode_cb(enum lte_lc_func_mode new_mode, void *user_data)
 	ARG_UNUSED(user_data);
 
 	if (lte_lc_func_mode_get(&fmode)) {
-		LOG_ERR("Failed to read modem functional mode\n");
+		LOG_ERR("Failed to read modem functional mode");
 		ret = -EFAULT;
 		return ret;
 	}
@@ -132,23 +129,23 @@ static int modem_mode_cb(enum lte_lc_func_mode new_mode, void *user_data)
 		ret = lte_lc_connect();
 
 		if (ret) {
-			LOG_ERR("lte_lc_connect() failed %d\n", ret);
+			LOG_ERR("lte_lc_connect() failed %d", ret);
 		}
-		LOG_INF("Modem connection restored\n");
+		LOG_INF("Modem connection restored");
 
-		LOG_INF("Waiting for modem to acquire network time...\n");
+		LOG_INF("Waiting for modem to acquire network time...");
 
 		do {
 			k_sleep(K_SECONDS(3));
 			ret = nrf_provisioning_at_time_get(time_buf, sizeof(time_buf));
 		} while (ret != 0);
 
-		LOG_WRN("Network time obtained\n");
+		LOG_WRN("Network time obtained");
 		ret = fmode;
 	} else {
 		ret = lte_lc_func_mode_set(new_mode);
 		if (ret == 0) {
-			LOG_ERR("Modem set to requested state %d\n", new_mode);
+			LOG_ERR("Modem set to requested state %d", new_mode);
 			ret = fmode;
 		}
 	}
@@ -162,18 +159,18 @@ static void device_mode_cb(enum nrf_provisioning_event event, void *user_data)
 
 	switch (event) {
 	case NRF_PROVISIONING_EVENT_START:
-		LOG_INF("Provisioning started\n");
+		LOG_INF("Provisioning started");
 		break;
 	case NRF_PROVISIONING_EVENT_STOP:
-		LOG_WRN("Provisioning stopped\n");
+		LOG_WRN("Provisioning stopped");
 		k_sem_give(&provisioning_complete);
 		break;
 	case NRF_PROVISIONING_EVENT_DONE:
-		LOG_INF("Provisioning done, rebooting...\n");
+		LOG_INF("Provisioning done, rebooting...");
 		reboot_device();
 		break;
 	default:
-		LOG_ERR("Unknown event\n");
+		LOG_ERR("Unknown event");
 		break;
 	}
 }
@@ -206,7 +203,7 @@ int display_init(void)
     /* Get devicetree identifier and make sure it is ready to use */
 	dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
 	if (!device_is_ready(dev)) {
-		LOG_ERR("Device %s not ready\n", dev->name);
+		LOG_ERR("Device %s not ready", dev->name);
 		return 0;
 	}
 
@@ -217,10 +214,10 @@ int display_init(void)
 		}
 	}
 
-	LOG_INF("Initialized %s\n", dev->name);
+	LOG_INF("Initialized %s", dev->name);
 
 	if (cfb_framebuffer_init(dev)) {
-		LOG_ERR("Framebuffer initialization failed!\n");
+		LOG_ERR("Framebuffer initialization failed!");
 		return 0;
 	}
 	cfb_framebuffer_clear(dev, true);
@@ -230,7 +227,7 @@ int display_init(void)
 	y_res = cfb_get_display_parameter(dev, CFB_DISPLAY_HEIGH);
 	rows = cfb_get_display_parameter(dev, CFB_DISPLAY_ROWS);
 	ppt = cfb_get_display_parameter(dev, CFB_DISPLAY_PPT);
-	LOG_INF("x_res %d, y_res %d, ppt %d, rows %d, cols %d\n",
+	LOG_INF("x_res %d, y_res %d, ppt %d, rows %d, cols %d",
 	       x_res,
 	       y_res,
 	       ppt,
@@ -248,7 +245,7 @@ int display_init(void)
 			break;
 		}
 		cfb_framebuffer_set_font(dev, idx);
-		LOG_WRN("font width %d, font height %d\n",
+		LOG_WRN("font width %d, font height %d",
 		       font_width, font_height);
 	}
 
@@ -285,10 +282,10 @@ int main(void)
 
 	err = nrf_provisioning_init(&mmode, &dmode);
 		if (err) {
-		LOG_ERR("Failed to initialize provisioning client\n");
+		LOG_ERR("Failed to initialize provisioning client");
 		}
 	k_sem_take(&provisioning_complete, K_FOREVER);
-	LOG_INF("Provisioning complete\n");
+	LOG_INF("Provisioning complete");
 
 	cloud_thread();
 

@@ -30,7 +30,7 @@ static int parse_config(cJSON *input, char **display_string)
         return -EINVAL;
     }
 
-    LOG_DBG("Shadow:\n%s", cJSON_Print(input));
+    LOG_DBG("Shadow:\n%s\n", cJSON_Print(input));
 
     cJSON *config = cJSON_GetObjectItem(input, "config");
     if (config == NULL) {
