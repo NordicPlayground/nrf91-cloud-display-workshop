@@ -236,7 +236,7 @@ Add the following code at the end of the main() function, right above *return 0;
 	cfb_framebuffer_set_font(dev,0);
 	cfb_print(dev, "Nordic", 40, 1);
 	cfb_print(dev, "Semiconductor", 20, 10);
-	cfb_print(dev, "EMEA FAE Workshop"12, 20);
+	cfb_print(dev, "EMEA FAE Workshop", 12, 20);
 	cfb_framebuffer_finalize(dev);
 ```
 
@@ -264,7 +264,7 @@ CONFIG_LTE_LINK_CONTROL=y
 CONFIG_LTE_NETWORK_MODE_LTE_M=y
 ```
 
-Add these includes list of includes in main.c, at line 
+Add these includes to the list of includes in main.c, at the top of the file 
 ```C
 /** Add includes needed for LTE connection **/
 #include <modem/nrf_modem_lib.h>
@@ -891,6 +891,7 @@ shadow_cleanup:
         if (err) {
             LOG_ERR("Failed to free shadow object: %d", err);
             continue;
+		}
 ```
 
 
